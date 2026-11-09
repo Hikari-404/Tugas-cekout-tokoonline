@@ -1,0 +1,37 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"   # UI: guest / guest
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+
+  service-b:            # Inventory & Payment + Notification Worker
+    build: ./service-b
+    ports:
+      - "8001:8001"
+    environment:
+      RABBIT_HOST: rabbitmq
+    volumes:
+      - b-data:/data
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  service-a:            # Order / Checkout
+    build: ./service-a
+    ports:
+      - "8000:8000"
+    environment:
+      RABBIT_HOST: rabbitmq
+      SERVICE_B_URL: http://service-b:8001
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+volumes:
+  b-data:
